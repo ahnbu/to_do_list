@@ -7,6 +7,7 @@ import AllTodosView from './components/AllTodosView';
 import ErrorBoundary from './components/ErrorBoundary';
 import LoadingSpinner from './components/LoadingSpinner';
 import StorageStatus from './components/StorageStatus';
+import AdminDashboard from './components/AdminDashboard';
 
 const App: React.FC = () => {
   const context = useContext(AppContext);
@@ -23,6 +24,11 @@ const App: React.FC = () => {
 
   if (!user) {
     return <Login />;
+  }
+
+  // 관리자라면 관리자 대시보드 노출
+  if (user.isAdmin) {
+    return <AdminDashboard />;
   }
   
   const renderView = () => {

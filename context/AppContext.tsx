@@ -2,6 +2,7 @@
 import React, { createContext, useState, ReactNode, useCallback, useMemo, useEffect } from 'react';
 import type { User, TodoList, TodoItem, View, Settings } from '../types';
 import { storage, StorageError } from '../utils/storage';
+import { getCurrentUser, signOut } from '../lib/supabaseClient';
 
 interface AppContextType {
   user: User | null;
@@ -27,65 +28,20 @@ interface AppContextType {
   restoreItem: (itemId: string) => boolean;
   permanentlyDeleteList: (listId: string) => void;
   permanentlyDeleteItem: (itemId: string) => void;
-  addFavoriteItem: (content: string) => void; // 추가
-  deleteItemsByFilter: (filter: (item: TodoItem) => boolean) => void; // 추가
+  addFavoriteItem: (content: string) => void;
+  deleteItemsByFilter: (filter: (item: TodoItem) => boolean) => void;
 }
 
 export const AppContext = createContext<AppContextType | undefined>(undefined);
 
-// Mock Data
-const MOCK_USER: User = {
-  userId: 'mock-user-123',
-  email: 'user@example.com',
-  displayName: '데모 사용자',
-  photoURL: 'https://picsum.photos/100/100',
-};
-
-const MOCK_LISTS: TodoList[] = [
-  { listId: 'list-1', userId: 'mock-user-123', name: '업무', createdAt: Date.now() - 200000 },
-  { listId: 'list-2', userId: 'mock-user-123', name: '개인 프로젝트', createdAt: Date.now() - 100000 },
-  { listId: 'list-3', userId: 'mock-user-123', name: '장보기', createdAt: Date.now() },
-];
-
-const MOCK_ITEMS: TodoItem[] = [
-  { itemId: 'item-1', listId: 'list-1', userId: 'mock-user-123', content: '분기별 보고서 작성', isCompleted: false, createdAt: Date.now() - 150000, isFavorited: true },
-  { itemId: 'item-2', listId: 'list-1', userId: 'mock-user-123', content: '팀 회의 준비', isCompleted: true, createdAt: Date.now() - 140000, isFavorited: false },
-  { itemId: 'item-3', listId: 'list-1', userId: 'mock-user-123', content: '클라이언트에게 이메일 보내기', isCompleted: false, createdAt: Date.now() - 130000, isFavorited: false },
-  { itemId: 'item-4', listId: 'list-2', userId: 'mock-user-123', content: 'UI 디자인 시안 작업', isCompleted: false, createdAt: Date.now() - 50000, isFavorited: true },
-  { itemId: 'item-5', listId: 'list-2', userId: 'mock-user-123', content: 'API 엔드포인트 구현', isCompleted: true, createdAt: Date.now() - 40000, isFavorited: false },
-  { itemId: 'item-6', listId: 'list-3', userId: 'mock-user-123', content: '우유', isCompleted: false, createdAt: Date.now() - 3000, isFavorited: false },
-  { itemId: 'item-7', listId: 'list-3', userId: 'mock-user-123', content: '계란', isCompleted: false, createdAt: Date.now() - 2000, isFavorited: false },
-];
-
 export const DEFAULT_LIST_NAME = '기본';
 
 export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }: { children: ReactNode }) => {
-  const [user, setUser] = useState<User | null>(() => {
-    const stored = storage.getUser();
-    return stored ? stored : MOCK_USER;
-  });
-  const [lists, setLists] = useState<TodoList[]>(() => {
-    const stored = storage.getLists();
-    return stored.length > 0 ? stored : MOCK_LISTS;
-  });
-  const [items, setItems] = useState<TodoItem[]>(() => {
-    const stored = storage.getItems();
-    return stored.length > 0 ? stored : MOCK_ITEMS;
-  });
-  const [view, setViewState] = useState<View>(() => {
-    try {
-      return storage.getView() as View;
-    } catch {
-      return 'dashboard';
-    }
-  });
-  const [focusedListId, setFocusedListId] = useState<string | null>(() => {
-    try {
-      return storage.getFocusedList();
-    } catch {
-      return null;
-    }
-  });
+  const [user, setUser] = useState<User & { isAdmin?: boolean } | null>(null);
+  const [lists, setLists] = useState<TodoList[]>([]);
+  const [items, setItems] = useState<TodoItem[]>([]);
+  const [view, setViewState] = useState<View>('dashboard');
+  const [focusedListId, setFocusedListId] = useState<string | null>(null);
   const [settings, setSettings] = useState<Settings>(() => {
     try {
       const s = storage.getSettings();
@@ -94,6 +50,25 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }: { c
       return { showItemsInDashboard: true, alwaysShowItemActions: true, showDefaultList: false };
     }
   });
+
+  // Supabase 인증 상태 동기화
+  useEffect(() => {
+    (async () => {
+      const { data } = await getCurrentUser();
+      if (data.user) {
+        const isAdmin = data.user.user_metadata?.isAdmin === true || data.user.email === 'byungwook.an@gmail.com';
+        setUser({
+          userId: data.user.id,
+          email: data.user.email || '',
+          displayName: data.user.user_metadata?.full_name || data.user.email || '',
+          photoURL: data.user.user_metadata?.avatar_url || '',
+          isAdmin,
+        });
+      } else {
+        setUser(null);
+      }
+    })();
+  }, []);
 
   // '기본' 목록이 여러 개 있을 경우 하나만 남기고 나머지는 삭제
   useEffect(() => {
@@ -126,35 +101,32 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }: { c
   }, [lists]);
   const visibleItems = useMemo(() => items.filter((i: TodoItem) => !i.isDeleted), [items]);
 
+  // 로그인: 인증 상태 동기화만 수행 (실제 인증은 Login.tsx에서 처리)
   const login = useCallback(() => {
-    try {
-      setUser(MOCK_USER);
-      setLists(MOCK_LISTS);
-      setItems(MOCK_ITEMS);
-      setViewState('dashboard');
-      
-      // 로컬 스토리지에 저장
-      storage.setUser(MOCK_USER);
-      storage.setLists(MOCK_LISTS);
-      storage.setItems(MOCK_ITEMS);
-      storage.setView('dashboard');
-      storage.setFocusedList(null);
-    } catch (error) {
-      console.error('Failed to save data during login:', error);
-    }
+    (async () => {
+      const { data } = await getCurrentUser();
+      if (data.user) {
+        const isAdmin = data.user.user_metadata?.isAdmin === true || data.user.email === 'byungwook.an@gmail.com';
+        setUser({
+          userId: data.user.id,
+          email: data.user.email || '',
+          displayName: data.user.user_metadata?.full_name || data.user.email || '',
+          photoURL: data.user.user_metadata?.avatar_url || '',
+          isAdmin,
+        });
+      } else {
+        setUser(null);
+      }
+    })();
   }, []);
 
+  // 로그아웃: Supabase 로그아웃 및 상태 초기화
   const logout = useCallback(() => {
-    try {
-      setUser(null);
-      setLists([]);
-      setItems([]);
-      
-      // 로컬 스토리지에서 데이터 삭제
-      storage.clearAll();
-    } catch (error) {
-      console.error('Failed to clear data during logout:', error);
-    }
+    signOut();
+    setUser(null);
+    setLists([]);
+    setItems([]);
+    storage.clearAll();
   }, []);
 
   const setView = useCallback((newView: View, listId: string | null = null) => {

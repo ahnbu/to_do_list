@@ -65,13 +65,13 @@ const TodoListTile: React.FC<TodoListTileProps> = ({ list, totalCount, completed
         </div>
       </div>
       <div className="mt-auto flex flex-col gap-0">
-        <form className="todo-input-area mt-4 flex gap-2" onClick={e => e.stopPropagation()} onSubmit={handleAddTodo}>
+        <form className="todo-input-area mt-4 flex gap-2 w-full" onClick={e => e.stopPropagation()} onSubmit={handleAddTodo}>
           <input
             type="text"
             value={newTodo}
             onChange={e => setNewTodo(e.target.value)}
             placeholder="새 할일 입력..."
-            className="flex-1 px-2 sm:px-3 py-2 rounded-lg bg-slate-800 text-slate-100 border border-slate-600 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-xs sm:text-sm"
+            className="flex-1 min-w-0 px-2 sm:px-3 py-2 rounded-lg bg-slate-800 text-slate-100 border border-slate-600 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-xs sm:text-sm"
           />
           <button
             type="submit"

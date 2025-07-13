@@ -1,6 +1,6 @@
 import React, { useContext } from 'react';
 import { AppContext } from './context/AppContext';
-import Login from './components/Login';
+import Login from './src/components/Login';
 import Dashboard from './components/Dashboard';
 import FocusView from './components/FocusView';
 import AllTodosView from './components/AllTodosView';

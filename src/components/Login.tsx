@@ -1,7 +1,7 @@
 
 import React, { useContext, useState } from 'react';
-import { AppContext } from '../context/AppContext';
-import { signUpWithEmail, signInWithEmail } from '../lib/supabaseClient';
+import { AppContext } from "../../context/AppContext";
+import { signUpWithEmail, signInWithEmail } from "../../src/lib/supabaseClient";
 
 const Login: React.FC = () => {
   const context = useContext(AppContext);

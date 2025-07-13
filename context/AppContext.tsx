@@ -2,7 +2,7 @@
 import React, { createContext, useState, ReactNode, useCallback, useMemo, useEffect } from 'react';
 import type { User, TodoList, TodoItem, View, Settings } from '../types';
 import { storage, StorageError } from '../utils/storage';
-import { getCurrentUser, signOut } from '../lib/supabaseClient';
+import { getCurrentUser, signOut } from '../src/lib/supabaseClient';
 
 interface AppContextType {
   user: User | null;
